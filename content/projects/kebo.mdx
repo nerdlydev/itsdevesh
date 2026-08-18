@@ -1,0 +1,71 @@
+---
+title: "Kebo — A Keyboard-First Command Interface for Chromium"
+description: "A browser extension that replaces mouse-heavy workflows with a keyboard-driven command palette, directly inside Chrome."
+---
+
+Most browser UIs are built for mice. Tabs, bookmarks, history, settings — all of it lives behind clicks and right-click menus scattered across the interface. If you spend most of your day in a browser, a lot of small actions add up to a lot of interruption.
+
+**Kebo** is a Chromium extension that gives those actions a keyboard-first interface — a command palette you summon with a shortcut, type what you want to do, and hit enter. No mouse required.
+
+## The problem
+
+Developer tools like VS Code, Raycast, and Linear have popularised the command palette pattern because it removes navigation overhead. You don't need to know *where* a feature lives — you just describe what you want. Browsers haven't caught up. Chrome's built-in address bar is partial — it can open URLs and search — but it can't close other tabs, mute a tab, navigate history, or trigger browser actions.
+
+Kebo fills that gap.
+
+## How it works
+
+The extension injects a floating overlay into the current page when the user triggers the shortcut (`Cmd+Shift+K` / `Ctrl+Shift+K`). The overlay is a React component mounted into a shadow DOM root, which isolates its styles from the host page entirely — no CSS leakage in either direction.
+
+A command registry maps command names to handler functions. When the user types, the input is scored against the registry using a simple fuzzy-match algorithm that weights prefix matches and consecutive character matches higher than scattered ones. The top matches render as a ranked list; the selected entry executes on `Enter`.
+
+### Commands
+
+Commands fall into a few categories:
+
+- **Tab management** — close tab, duplicate tab, pin/unpin, mute/unmute, move to new window
+- **Navigation** — back, forward, reload, hard reload, go to URL
+- **Bookmarks** — open bookmark by name (fuzzy-searched against the bookmarks tree)
+- **History** — search recent history and open entries
+- **Extensions** — toggle extensions on/off by name
+- **Settings** — open specific settings pages directly
+
+### Chrome APIs used
+
+Each command category uses the corresponding Chrome Extension API:
+
+- `chrome.tabs` — tab state and management
+- `chrome.bookmarks` — read and navigate the bookmarks tree
+- `chrome.history` — search recent history
+- `chrome.management` — toggle other extensions
+- `chrome.windows` — window management
+
+### Shadow DOM isolation
+
+Injecting UI into arbitrary pages is fragile. Host pages often have aggressive global CSS resets or `!important` rules that break injected elements. Kebo mounts its overlay inside a `ShadowRoot` with `mode: 'closed'`, which means:
+
+- The overlay's styles are scoped and can't be overridden by the host page's CSS
+- The host page's styles don't leak into the overlay
+- Scripts on the host page can't query Kebo's DOM nodes
+
+## Architecture
+
+The extension has three main pieces:
+
+**Content script** — injected into every page. Listens for the keyboard shortcut and mounts/unmounts the command palette overlay. Communicates with the background worker for operations that require broader Chrome API access.
+
+**Background service worker** — handles Chrome APIs that aren't available in content script context (some `chrome.management` calls, for example) and maintains the command registry state.
+
+**Popup** — a minimal options UI for customising the keyboard shortcut and toggling which command categories are enabled.
+
+## Tech stack
+
+- **TypeScript** throughout
+- **React** for the overlay UI
+- **Chromium Extensions API** (Manifest V3)
+- **Shadow DOM** for style isolation
+- **Vite** for bundling the extension
+
+## What's next
+
+The main area of active work is *context-aware commands* — commands that know what's on the current page and surface relevant actions. For example, on a GitHub PR, Kebo could offer "checkout this branch locally" or "copy PR number". On a docs page, it could offer "search this site". The Chrome Extensions API and content script context together make this feasible; the challenge is doing it without slowing down page load or injecting excessive script into every page.

@@ -1,0 +1,67 @@
+---
+title: "nerdShare — P2P File Sharing Without a Server"
+description: "How nerdShare sends files directly between browsers using WebRTC, without ever touching a storage server."
+---
+
+Most file-sharing tools work by uploading your file to a server, generating a link, and having the recipient download it from there. That's simple to build, but it means your file — however personal — lives on someone else's machine, even briefly.
+
+**nerdShare** is built around a different model: the file never leaves the two browsers involved. The sender and receiver establish a direct peer-to-peer connection, and the bytes travel across it without touching any intermediate server.
+
+## The core idea
+
+WebRTC, originally designed for video calling, gives browsers the ability to open direct data channels to each other. Once a connection is established, you can send arbitrary binary data through it. nerdShare uses this to pipe the file from the sender's `FileReader` API directly to the receiver's side.
+
+The catch is that WebRTC still needs a *signaling* step before the peer connection is up — the two browsers need to exchange connection metadata (ICE candidates and SDP offers/answers) through some shared channel. That's what the server does: it's a signaling relay, not a file host. Once the WebRTC handshake completes, the server's job is done.
+
+## Architecture
+
+```
+Sender browser          Signaling server (WebSocket)          Receiver browser
+     │                          │                                      │
+     │── offer (SDP) ──────────►│── forward ──────────────────────────►│
+     │                          │                                      │
+     │◄── answer (SDP) ─────────│◄── forward ──────────────────────────│
+     │                          │                                      │
+     │── ICE candidates ────────►│── forward ──────────────────────────►│
+     │◄── ICE candidates ────────│◄── forward ──────────────────────────│
+     │                          │                                      │
+     │◄══════════════ Direct WebRTC data channel ═══════════════════════│
+     │                    (server no longer involved)                   │
+```
+
+### Signaling
+
+The signaling server is a lightweight WebSocket server built with Bun. Rooms are identified by a short random code that the sender generates and shares with the receiver (a URL with the code embedded). When a receiver opens that URL, the server matches them to the waiting sender and starts forwarding their WebRTC handshake messages.
+
+### The data channel
+
+Once WebRTC is negotiated, the sender reads the file in chunks using the `FileReader` API and sends each chunk through the `RTCDataChannel`. Chunking is necessary because the channel has a practical message-size limit (typically 64 KB per send), and sending the whole file as one buffer causes the channel to queue it in memory before transmission.
+
+The receiver accumulates the chunks in order and reconstructs the file using `Blob`. Once all chunks arrive, it triggers a browser download via a temporary object URL.
+
+### Progress tracking
+
+Both sides get progress feedback through the channel itself: the sender sends chunk index metadata alongside each payload, and the receiver reports acknowledgements back. This keeps both UI states accurate without any server involvement.
+
+## Design decisions
+
+**Why not use Torrent or IPFS?**
+Both require additional client software or heavy libraries. WebRTC is already in every modern browser, and nerdShare targets zero-install usage on both ends.
+
+**Why Bun for the server?**
+The signaling server is pure I/O — it just forwards WebSocket messages between two connections. Bun's native WebSocket support meant the server was a handful of lines without reaching for additional packages.
+
+**Why not persist rooms?**
+Rooms are ephemeral. Once the transfer completes (or either peer disconnects), the room is gone. There's nothing to retain server-side, and that's the point.
+
+## Tech stack
+
+- **TypeScript** across the full stack
+- **React** for the browser UI
+- **WebRTC** (`RTCPeerConnection`, `RTCDataChannel`) for the P2P transfer
+- **WebSockets** (Bun native) for signaling
+- **Bun** for the server runtime
+
+## Current state
+
+nerdShare is functional for one-to-one transfers. Planned work includes support for multiple receivers, transfer resume on reconnect, and a drag-and-drop UI.

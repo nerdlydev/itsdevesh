@@ -1,0 +1,75 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { MentionRow } from "../components/rows";
+import * as s from "../components/styles";
+import { mentions } from "../../lib/mentions";
+import { getAllPosts, formatDate } from "../../lib/writing";
+
+export const metadata: Metadata = {
+  title: "Writing",
+  description:
+    "Essays and notes by Devesh Sharma on engineering, distributed systems, and AI.",
+};
+
+export default function WritingIndex() {
+  const posts = getAllPosts();
+
+  return (
+    <main className="page">
+      <h1 className={s.pageTitle}>Writing</h1>
+      <p className={s.tagline}>
+        Essays, notes, and things I&apos;m figuring out.
+      </p>
+
+      <section className="section">
+        {posts.length === 0 ? (
+          <p className={s.rowDesc}>Nothing here yet — check back soon.</p>
+        ) : (
+          <div className={`${s.rowGrid} breakout`} data-reveal>
+            {posts.map((post) => (
+              <Link
+                key={post.slug}
+                className={s.row}
+                href={`/writing/${post.slug}`}
+              >
+                <div className={s.rowHead}>
+                  <span className={s.rowTitle}>{post.title}</span>
+                  <span className={s.rowMeta}>{formatDate(post.date)}</span>
+                </div>
+                {post.description && (
+                  <p className={s.rowDesc}>{post.description}</p>
+                )}
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {mentions.length > 0 && (
+        <section className="section" data-reveal>
+          <div className={s.sectionHead}>
+            <p className={s.sectionLabel}>Elsewhere</p>
+          </div>
+          <div className={`${s.rowGrid} breakout`} data-reveal>
+            {mentions.map((mention) => (
+              <MentionRow key={mention.link} mention={mention} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <footer className={s.footer}>
+        <span>© {new Date().getFullYear()} Devesh Sharma</span>
+        <span className="flex gap-4">
+          <a
+            href="/feed.xml"
+            className="text-accent/80 transition-colors hover:text-accent-hover"
+          >
+            rss
+          </a>
+          <Link href="/">itsdevesh.me</Link>
+        </span>
+      </footer>
+    </main>
+  );
+}

@@ -1,0 +1,455 @@
+@import "tailwindcss";
+
+/* Tailwind wraps `hover:` in @media (hover: hover) but NOT `group-hover:`.
+   Hover cards need the guard, or a tap on a touch device leaves the card
+   stuck open behind a sticky :hover. */
+@custom-variant hoverable (@media (hover: hover));
+
+@theme {
+  --color-background: #000000;
+  --color-foreground: #ededed;
+  --color-muted: #a1a1a1;
+  --color-faint: #707070;
+  --color-line: #1f1f1f;
+  --color-line-strong: #333333;
+  --color-accent: #d98a4f;
+  --color-accent-hover: #edb184;
+  --color-card: #0a0a0a;
+
+  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+  --font-serif: var(--font-instrument-serif), "Iowan Old Style", Georgia, serif;
+
+  /* two column widths on one centre axis: prose reads narrow, grids break out */
+  --width-text: 620px;
+  --width-flank: 200px;
+  --width-wide: 1020px;
+  --spacing-gutter: 1.25rem;
+
+  /* Contribution grid. A full year sits in the 620px text column at 9px cells
+     with a 2px gap (581px); 9/3 or 10/3 overflow it. */
+  --gh-cell: 9px;
+  --gh-gap: 2px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+    /* `clip`, not `hidden`: hidden would make this a scroll container and
+       break the sticky nav. clip pairs with a visible vertical axis without
+       coercing it, so the page still scrolls down but can never scroll
+       sideways — whatever overhangs. The hover cards are centred on their
+       link and a link near the right edge pushes one past the edge. */
+    overflow-x: clip;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-size: 16px;
+    line-height: 1.65;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* Pools behind the page heading rather than sitting off the top edge —
+       every route puts its title in the same place, so one gradient anchored
+       to the top of the document lands behind all of them. The cursor glow
+       adds to this where the pointer is, which is where it came from. */
+    /* Capped against the viewport as well as in absolute terms: 38rem is
+       wider than a phone, so a fixed size stops reading as a pool behind the
+       title and just tints the whole screen. */
+    background-image: radial-gradient(
+      min(38rem, 80vw) min(20rem, 42vw) at 38% 5rem,
+      --alpha(var(--color-accent) / 14%),
+      transparent 72%
+    );
+    background-repeat: no-repeat;
+  }
+
+  ::selection {
+    background: --alpha(var(--color-accent) / 30%);
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    touch-action: manipulation;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+}
+
+/* The page grid. Kept in CSS rather than inlined as utilities because the
+   named grid lines (full / wide / text) are what let a heading sit in the
+   narrow column while the grid below it breaks out — and named lines have no
+   utility equivalent. Children default to `text`; `.breakout` opts into `wide`.
+
+   The text track is sized with min() so the flanks surrender their space first
+   and collapse to 0 on narrow screens, instead of every track shrinking
+   proportionally and stranding the copy in a thin ribbon. */
+@layer components {
+  .page {
+    display: grid;
+    grid-template-columns:
+      [full-start] minmax(var(--spacing-gutter), 1fr)
+      [wide-start] minmax(0, var(--width-flank))
+      [text-start] min(var(--width-text), 100% - var(--spacing-gutter) * 2)
+      [text-end] minmax(0, var(--width-flank))
+      [wide-end] minmax(var(--spacing-gutter), 1fr) [full-end];
+    padding-block: clamp(1.5rem, 5vh, 3rem) 5rem;
+  }
+
+  .page > * {
+    grid-column: text;
+  }
+
+  .section {
+    grid-column: full;
+    display: grid;
+    grid-template-columns: subgrid;
+    margin-top: 3.5rem;
+  }
+
+  .section > * {
+    grid-column: text;
+  }
+
+  .breakout,
+  .section > .breakout {
+    grid-column: wide;
+  }
+}
+
+/* Article body. Styled here rather than with utilities because the markup is
+   generated from MDX — there are no elements to put classes on. */
+@layer components {
+  .prose {
+    color: var(--color-foreground);
+    font-size: 1rem;
+    line-height: 1.8;
+  }
+
+  .prose > * + * {
+    margin-top: 1.15rem;
+  }
+
+  .prose h2,
+  .prose h3 {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    scroll-margin-top: 2rem;
+    text-wrap: balance;
+  }
+
+  .prose h2 {
+    font-size: 1.7rem;
+    margin-top: 2.5rem;
+  }
+
+  .prose h3 {
+    font-size: 1.35rem;
+    margin-top: 2rem;
+  }
+
+  .prose p,
+  .prose ul,
+  .prose ol {
+    color: #d4d4d4;
+    text-wrap: pretty;
+  }
+
+  .prose ul,
+  .prose ol {
+    padding-left: 1.4rem;
+    list-style: revert;
+  }
+
+  .prose li + li {
+    margin-top: 0.4rem;
+  }
+
+  .prose a {
+    color: var(--color-accent);
+    border-bottom: 1px solid transparent;
+  }
+
+  .prose a:hover {
+    border-color: var(--color-accent);
+  }
+
+  .prose blockquote {
+    border-left: 2px solid var(--color-accent);
+    padding-left: 1rem;
+    color: var(--color-muted);
+    font-style: italic;
+  }
+
+  .prose pre {
+    background: var(--color-card);
+    border: 1px solid var(--color-line);
+    padding: 1rem 1.15rem;
+    overflow-x: auto;
+    font-size: 0.9rem;
+  }
+
+  .prose code {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    background: var(--color-card);
+    border: 1px solid var(--color-line);
+    padding: 0.1em 0.4em;
+  }
+
+  .prose pre code {
+    background: none;
+    border: none;
+    padding: 0;
+  }
+
+  .prose img {
+    max-width: 100%;
+    border: 1px solid var(--color-line);
+  }
+
+  .prose hr {
+    border: none;
+    border-top: 1px dashed var(--color-line);
+    margin: 2.5rem 0;
+  }
+}
+
+/* Motion.
+
+   These rules sit outside every @layer on purpose: unlayered CSS outranks
+   layered CSS, so a `transition-colors` utility on a revealing element can't
+   quietly replace the transition that makes it appear.
+
+   Everything hidden-until-seen hangs off `html[data-motion]`, which an inline
+   script sets before first paint and only when the visitor hasn't asked for
+   less motion. Without JS — or with reduced motion — the attribute never
+   lands, and nothing is ever parked at opacity: 0 with no way back. */
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* `to` is spelled out because the underlying opacity is 0 — an implicit `to`
+   would resolve to that and animate the columns from invisible to invisible. */
+@keyframes cell-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes scroll-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Route change. Each page renders its own .page, so navigating remounts this
+   element and replays the animation — no transition wrapper needed. */
+.page {
+  animation: page-in 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+html[data-motion] [data-reveal]:not([data-stagger], [data-sweep]),
+html[data-motion] [data-stagger] > *,
+html[data-motion] [data-sweep] > * {
+  opacity: 0;
+}
+
+html[data-motion] [data-reveal]:not([data-stagger], [data-sweep]),
+html[data-motion] [data-stagger] > * {
+  transform: translateY(0.7rem);
+  transition:
+    opacity 0.65s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 0.65s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+html[data-motion] [data-reveal][data-revealed]:not([data-stagger]),
+html[data-motion] [data-stagger][data-revealed] > * {
+  opacity: 1;
+  transform: none;
+}
+
+/* Children cascade instead of arriving as a block. Ten steps covers the
+   longest list on the site; anything past it shares the last delay. */
+html[data-motion] [data-stagger] > *:nth-child(n + 2) {
+  transition-delay: 60ms;
+}
+html[data-motion] [data-stagger] > *:nth-child(n + 3) {
+  transition-delay: 120ms;
+}
+html[data-motion] [data-stagger] > *:nth-child(n + 4) {
+  transition-delay: 180ms;
+}
+html[data-motion] [data-stagger] > *:nth-child(n + 5) {
+  transition-delay: 240ms;
+}
+html[data-motion] [data-stagger] > *:nth-child(n + 6) {
+  transition-delay: 300ms;
+}
+html[data-motion] [data-stagger] > *:nth-child(n + 7) {
+  transition-delay: 360ms;
+}
+html[data-motion] [data-stagger] > *:nth-child(n + 8) {
+  transition-delay: 420ms;
+}
+html[data-motion] [data-stagger] > *:nth-child(n + 9) {
+  transition-delay: 480ms;
+}
+
+/* The contribution chart fills left to right, a week per step — the delay
+   comes from --i, set per column, because 53 nth-child rules is absurd. */
+html[data-motion] [data-sweep][data-revealed] > * {
+  animation: cell-in 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 9ms);
+}
+
+/* Light following the pointer. z-index: -1 puts it under the text but still
+   over the page background — body's background propagates to the canvas, so
+   it paints behind negative-z children rather than covering them.
+
+   Sized and offset in CSS so the script only ever writes a transform. */
+.cursor-glow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  width: 38rem;
+  height: 38rem;
+  margin: -19rem 0 0 -19rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  /* 8%, not the 12% this was tuned to on its own — it now rides on top of the
+     14% wash behind the heading, and the two add where they overlap. */
+  background: radial-gradient(
+    circle,
+    --alpha(var(--color-accent) / 10%),
+    transparent 63%
+  );
+  filter: blur(50px);
+  will-change: transform;
+}
+
+@media (hover: none), (prefers-reduced-motion: reduce) {
+  .cursor-glow {
+    display: none;
+  }
+}
+
+/* The photo viewer. A modal <dialog> can't be transitioned in without
+   @starting-style, but it can be animated — and it only ever opens, so a
+   keyframe on [open] is all it needs. */
+dialog[open] {
+  animation: dialog-in 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+dialog[open]::backdrop {
+  animation: backdrop-in 0.22s ease-out both;
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The nav's frosted panel. Solid by default so that any browser without
+   scroll-driven animations keeps today's behaviour — legible links over a
+   backdrop — and only browsers that can do the fade get the transparent top.
+   Its own layer rather than a background on <nav>, because opacity is the one
+   property that fades a backdrop-filter cleanly. */
+.nav-surface {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: --alpha(var(--color-background) / 80%);
+  backdrop-filter: blur(12px) saturate(1.5);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: scroll()) {
+    .nav-surface {
+      /* Transparent as the base state, not just as the animation's first
+         frame. A scroll timeline whose container can't scroll is *inactive*,
+         and an inactive timeline means the animation doesn't apply — the
+         element falls back to base style. Without this, any page short enough
+         to fit the window (writing, usually) showed a solid bar with nothing
+         behind it to justify one. */
+      opacity: 0;
+      animation: nav-surface-in linear both;
+      animation-timeline: scroll(root block);
+      /* fully solid within the first few rem of scrolling, so it isn't
+         still fading in halfway down the page */
+      animation-range: 0 4rem;
+    }
+  }
+}
+
+@keyframes nav-surface-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Reading position, drawn straight from the scroll offset. No JS, no scroll
+   listener — and in browsers without scroll-driven animations the bar simply
+   stays at scaleX(0) and is never seen. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: scroll()) {
+    .scroll-progress {
+      animation: scroll-progress linear both;
+      animation-timeline: scroll(root block);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
