@@ -6,15 +6,23 @@
 @custom-variant hoverable (@media (hover: hover));
 
 @theme {
-  --color-background: #000000;
-  --color-foreground: #ededed;
-  --color-muted: #a1a1a1;
-  --color-faint: #707070;
-  --color-line: #1f1f1f;
-  --color-line-strong: #333333;
-  --color-accent: #d98a4f;
-  --color-accent-hover: #edb184;
-  --color-card: #0a0a0a;
+  /* ── Purple-indigo dark palette (OKLCH) ──────────────────────────────────
+     Primary/accent: oklch(0.7577 0.0972 292.6953) — soft lavender-purple
+     Background:     oklch(0.2001 0.0179 284.6656) — near-black, cool blue tone
+     Card surface:   oklch(0.2406 0.0228 284.5558) — slightly lighter surface
+     Muted text:     oklch(0.7316 0.0287 285.6699)
+     Faint text:     oklch(0.5584 0.0276 285.4704) (mapped from light muted-fg)
+     Line/border:    oklch(0.3454 0.0348 284.4346)
+  */
+  --color-background: oklch(0.2001 0.0179 284.6656);
+  --color-foreground: oklch(0.9281 0.0148 286.1081);
+  --color-muted: oklch(0.7316 0.0287 285.6699);
+  --color-faint: oklch(0.5584 0.0276 285.4704);
+  --color-line: oklch(0.3454 0.0348 284.4346);
+  --color-line-strong: oklch(0.4422 0.0619 290.8786);
+  --color-accent: oklch(0.7577 0.0972 292.6953);
+  --color-accent-hover: oklch(0.8640 0.0510 286.5198);
+  --color-card: oklch(0.2406 0.0228 284.5558);
 
   --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, sans-serif;
