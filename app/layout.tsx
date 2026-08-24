@@ -4,6 +4,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Instrument_Serif } from "next/font/google";
 import { CursorGlow } from "./components/cursor-glow";
+import { MusicPlayer } from "./components/spotify-tracks";
 import { Nav } from "./components/nav";
 import { Reveal } from "./components/reveal";
 import "./globals.css";
@@ -72,6 +73,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <CursorGlow />
         <Nav />
         {children}
+        <MusicPlayer />
         <Reveal />
       </body>
     </html>

@@ -248,6 +248,11 @@
    less motion. Without JS — or with reduced motion — the attribute never
    lands, and nothing is ever parked at opacity: 0 with no way back. */
 
+@keyframes music-bar {
+  from { transform: scaleY(0.2); }
+  to   { transform: scaleY(1); }
+}
+
 @keyframes page-in {
   from {
     opacity: 0;

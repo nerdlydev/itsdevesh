@@ -22,7 +22,7 @@ export default function Home() {
 
       <p className="mt-8 text-[0.95rem] leading-[1.8] text-pretty text-muted">
         I&apos;m a Full Stack Software Engineer at{" "}
-        <PreviewLink href="https://leadchain.com">
+        <PreviewLink href="https://leadchainsystems.com">
           Leadchain Systems
         </PreviewLink>
         , where I build scalable real-time, distributed, and AI-powered

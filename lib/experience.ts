@@ -22,7 +22,7 @@ export const experience: Experience[] = [
     period: "Dec 2024 — present",
     description:
       "Building scalable real-time, distributed, and AI-powered systems across the company's SaaS and CRM products — WebRTC/Mediasoup infrastructure, WhatsApp messaging, BullMQ/Redis background processing, AWS S3 media pipelines, multi-tenant architecture, and RAG/conversational AI systems.",
-    href: "https://leadchain.com",
+    href: "https://leadchainsystems.com",
     // images: ["/images/experience/leadchain/1.jpg"],
   },
 ];
