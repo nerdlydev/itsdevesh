@@ -1,5 +1,5 @@
 import { Contributions } from "./components/contributions";
-import { Music } from "./components/music";
+import { Skills } from "./components/skills";
 import { Now } from "./components/now";
 import { PreviewLink } from "./components/preview-link";
 import * as s from "./components/styles";
@@ -72,9 +72,7 @@ export default function Home() {
       <Contributions login="nerdlydev" />
       <Now />
 
-      {/* last on purpose — the page closes on something personal rather than
-          on a commit graph */}
-      <Music />
+      <Skills />
 
       <footer className={s.footer}>
         <span>© {new Date().getFullYear()} Devesh Sharma</span>
