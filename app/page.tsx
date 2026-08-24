@@ -1,4 +1,5 @@
 import { Contributions } from "./components/contributions";
+import { Experience } from "./components/experience";
 import { Skills } from "./components/skills";
 import { Now } from "./components/now";
 import { PreviewLink } from "./components/preview-link";
@@ -70,6 +71,7 @@ export default function Home() {
       </div>
 
       <Contributions login="nerdlydev" />
+      <Experience />
       <Now />
 
       <Skills />

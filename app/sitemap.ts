@@ -14,7 +14,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return [
     { url: SITE_URL, lastModified: latest, changeFrequency: "weekly", priority: 1 },
-    { url: `${SITE_URL}/work`, changeFrequency: "monthly", priority: 0.8 },
     {
       url: `${SITE_URL}/writing`,
       lastModified: latest,

@@ -7,7 +7,6 @@ import { usePathname } from "next/navigation";
 // it should read as one site, not as navigating away.
 const items = [
   { href: "/", label: "Devesh" },
-  { href: "/work", label: "Work" },
   { href: "/writing", label: "Writing" },
   { href: "/projects", label: "Projects" },
 ];
