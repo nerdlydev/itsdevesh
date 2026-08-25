@@ -21,7 +21,7 @@ export const experience: Experience[] = [
     role: "Full Stack Software Engineer",
     period: "Dec 2024 — present",
     description:
-      "Building scalable real-time, distributed, and AI-powered systems across the company's SaaS and CRM products — WebRTC/Mediasoup infrastructure, WhatsApp messaging, BullMQ/Redis background processing, AWS S3 media pipelines, multi-tenant architecture, and RAG/conversational AI systems.",
+      "Building scalable real-time, distributed, and AI-powered systems across the company's SaaS and CRM products — WebRTC/Mediasoup infrastructure, WhatsApp messaging, BullMQ/Redis background processing, AWS S3 media pipelines, multi-tenant architecture, RAG/conversational AI and agentic workflows.",
     href: "https://leadchainsystems.com",
     // images: ["/images/experience/leadchain/1.jpg"],
   },
