@@ -4,14 +4,11 @@ import * as s from "./styles";
 
 const DAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];
 
-// the legend reuses the cell styling; the chart's own copy lives with the grid
 const cell =
   "w-[var(--gh-cell)] h-[var(--gh-cell)] bg-card outline outline-white/5 -outline-offset-1 " +
   "data-[level=1]:bg-accent/28 data-[level=2]:bg-accent/50 " +
   "data-[level=3]:bg-accent/72 data-[level=4]:bg-accent/95";
 
-// Sits in the default text column rather than the breakout track — a full year
-// of columns fits at 9px cells, and it doesn't need the extra width.
 export async function Contributions({ login }: { login: string }) {
   const data = await getContributions(login);
   if (!data) return null;
@@ -20,20 +17,20 @@ export async function Contributions({ login }: { login: string }) {
 
   return (
     <section className="section" data-reveal>
-      <div className="flex flex-col gap-0 mb-4">
-        <div className="mb-0 flex items-baseline justify-between gap-4">
-          <p className={s.sectionLabel}>Contributions</p>
+      <div className="flex flex-col gap-1 mb-4">
+        <div className="flex items-baseline justify-between gap-4">
+          <p className={s.sectionLabel}>GitHub Activity</p>
           <a
             className={s.sectionAll}
             href={`https://github.com/${login}`}
             target="_blank"
             rel="noreferrer"
           >
-            {data.total.toLocaleString()} this year
+            View more on GitHub →
           </a>
         </div>
         <p className="font-mono text-[0.7rem] lowercase text-faint">
-          am i really a dev if i don't put up my github contribution chart?
+          building, experimenting, and shipping.
         </p>
       </div>
 
@@ -48,7 +45,6 @@ export async function Contributions({ login }: { login: string }) {
             ))}
           </div>
 
-          {/* labels overflow their column rather than stretching the grid */}
           <div
             aria-hidden="true"
             className="col-start-2 row-start-1 grid auto-cols-[var(--gh-cell)] grid-flow-col gap-[var(--gh-gap)] font-mono text-[0.6rem] leading-none text-faint [&>span]:overflow-visible [&>span]:whitespace-nowrap"
@@ -62,7 +58,6 @@ export async function Contributions({ login }: { login: string }) {
         </div>
       </div>
 
-      {/* legend swatches stay small — they're a key, not part of the chart */}
       <div className="mt-3 flex items-center gap-1 font-mono text-[0.6rem] lowercase text-faint">
         <span className="mr-[0.15rem]">Less</span>
         {[0, 1, 2, 3, 4].map((level) => (

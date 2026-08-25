@@ -1,0 +1,546 @@
+---
+title: "How I Solved the Frontend API Consumer Problem in Our Agentic CRM"
+description: "Building an end-to-end type-safe API contract between NestJS, Drizzle, Zod, OpenAPI, Orval, and React Query."
+date: "2026-08-25"
+draft: false
+---
+
+One problem I have faced many times as a full-stack developer is surprisingly simple:
+
+**The backend API changes, but the frontend doesn't know about it.**
+
+Or the frontend thinks the API returns one thing, while the backend actually returns something slightly different.
+
+Sometimes it is a missing field. Sometimes the field name changes. Sometimes the API response structure changes. Sometimes the backend developer updates the API, but nobody tells the frontend developer.
+
+And then we spend time debugging something that should never have reached development in the first place.
+
+While building an **agentic CRM** at my current organisation, I wanted to solve this problem properly.
+
+I didn't want the frontend developers to manually write API clients, remember endpoints, manually maintain TypeScript interfaces, and hope that those interfaces still matched the backend.
+
+I wanted the frontend to have a simple experience:
+
+> **"I need this data. Give me a hook, and I know exactly what data I will get."**
+
+That led me to building an API contract between the backend and frontend using **TypeScript, Zod, NestJS, Drizzle, Orval, Node.js, React, and React Query.**
+
+---
+
+## The Problem
+
+In a traditional frontend/backend setup, it is very easy for the API layer to become disconnected.
+
+For example, the backend might expose:
+
+```ts
+GET /api/leads/:id
+```
+
+And the frontend developer might manually create:
+
+```ts
+interface Lead {
+  id: string;
+  name: string;
+  email: string;
+}
+```
+
+Then:
+
+```ts
+const response = await fetch(`/api/leads/${id}`);
+const lead: Lead = await response.json();
+```
+
+Looks fine.
+
+But there is a problem.
+
+TypeScript is only checking what **we tell it**.
+
+If the backend actually returns:
+
+```json
+{
+  "id": "123",
+  "fullName": "John Doe",
+  "emailAddress": "john@example.com"
+}
+```
+
+TypeScript won't magically know that our `Lead` interface is wrong.
+
+We have created a type that says:
+
+```ts
+name: string;
+email: string;
+```
+
+But the API is returning:
+
+```ts
+fullName: string;
+emailAddress: string;
+```
+
+The compiler is happy.
+
+The application is not.
+
+This is the part that bothered me the most.
+
+**TypeScript gives us type safety, but only if the types actually represent reality.**
+
+So the real problem wasn't just typing.
+
+The real problem was **keeping the API contract and the frontend contract synchronized.**
+
+---
+
+# The Approach
+
+I decided to make the backend the source of truth.
+
+The flow became roughly:
+
+```text
+Database
+   ↓
+Drizzle
+   ↓
+NestJS
+   ↓
+Zod / DTO validation
+   ↓
+OpenAPI Contract
+   ↓
+Orval
+   ↓
+Typed API Hooks
+   ↓
+React Query
+   ↓
+React Components
+```
+
+The important part is that the frontend no longer needs to understand the implementation details of the API.
+
+It consumes the contract.
+
+---
+
+# 1. TypeScript Everywhere
+
+The first thing that helped was obviously TypeScript.
+
+Because both our backend and frontend are TypeScript-based, we can share a common language around our data.
+
+But I learned that simply having TypeScript on both sides isn't enough.
+
+This:
+
+```ts
+interface Lead {
+  id: string;
+  name: string;
+}
+```
+
+doesn't guarantee that the backend actually returns that structure.
+
+So I wanted to move the type definition closer to the API itself.
+
+---
+
+# 2. Zod for Runtime Validation
+
+This is where Zod became important.
+
+TypeScript provides compile-time safety.
+
+Zod provides runtime validation.
+
+For example:
+
+```ts
+const LeadSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string().email(),
+});
+```
+
+Now we have an actual runtime definition of what a Lead should look like.
+
+We can validate data instead of simply trusting it.
+
+That distinction is important:
+
+```text
+TypeScript
+    ↓
+"Does my code think this is valid?"
+
+Zod
+    ↓
+"Is this data actually valid at runtime?"
+```
+
+For an application like a CRM, where data comes from many different sources and integrations, I found this especially useful.
+
+---
+
+# 3. Drizzle as the Database Layer
+
+On the database side, we use Drizzle.
+
+Drizzle gives us strongly typed database queries and keeps the database model close to TypeScript.
+
+For example, if our database contains:
+
+```ts
+export const leads = pgTable("leads", {
+  id: uuid("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email"),
+});
+```
+
+we get strong typing when working with the database.
+
+So now we have type safety moving through another part of the stack:
+
+```text
+Database
+    ↓
+Drizzle
+    ↓
+TypeScript
+```
+
+But there is still another important boundary:
+
+```text
+Backend
+    ↓
+API
+    ↓
+Frontend
+```
+
+That is where the API contract comes in.
+
+---
+
+# 4. NestJS Defines the API
+
+Our backend uses NestJS.
+
+Instead of thinking about the frontend as something that manually calls backend endpoints, I started thinking about the API itself as a **contract**.
+
+For example:
+
+```ts
+@Get(':id')
+async getLead(@Param('id') id: string) {
+  return this.leadsService.findById(id);
+}
+```
+
+The important thing isn't just the endpoint.
+
+It is the contract around that endpoint:
+
+* What parameters does it accept?
+* What does the request body look like?
+* What does it return?
+* What errors can happen?
+* What fields are required?
+* What fields are optional?
+
+This information can then be represented through OpenAPI.
+
+And that became the bridge between our backend and frontend.
+
+---
+
+# 5. Orval Generates the Frontend API Layer
+
+This is probably the part that made the biggest difference for me.
+
+Instead of manually writing API clients and hooks, we use **Orval** to generate them from the API contract.
+
+So instead of doing this:
+
+```ts
+const getLead = async (id: string) => {
+  const response = await fetch(`/api/leads/${id}`);
+  return response.json();
+};
+```
+
+and then manually creating React Query hooks around it, we generate the API layer.
+
+The frontend gets something conceptually like:
+
+```ts
+const { data, isLoading } = useGetLead(id);
+```
+
+Now the frontend developer doesn't need to worry about:
+
+* The URL
+* HTTP method
+* Request serialization
+* Response typing
+* React Query configuration
+* Cache keys
+* API client implementation
+
+They just consume the hook.
+
+And that's exactly what I wanted.
+
+---
+
+# 6. React Query Becomes the Frontend Data Layer
+
+On the React side, React Query handles the server state.
+
+The component doesn't need to know how the API works internally.
+
+For example:
+
+```tsx
+const { data: lead, isLoading } = useGetLead(leadId);
+
+if (isLoading) {
+  return <Loader />;
+}
+
+return <LeadName>{lead.name}</LeadName>;
+```
+
+This is much cleaner than having API logic scattered across components.
+
+The component's responsibility becomes:
+
+> "I need a Lead."
+
+Not:
+
+> "I need to construct this URL, make this HTTP request, parse the response, handle caching, handle loading, and figure out what the response looks like."
+
+That separation made the frontend much easier to work with.
+
+---
+
+# The Result
+
+The architecture now looks something like this:
+
+```text
+                    ┌──────────────┐
+                    │   Database   │
+                    └──────┬───────┘
+                           │
+                        Drizzle
+                           │
+                           ▼
+                    ┌──────────────┐
+                    │   NestJS     │
+                    │   Backend    │
+                    └──────┬───────┘
+                           │
+                     API Contract
+                       OpenAPI
+                           │
+                           ▼
+                    ┌──────────────┐
+                    │    Orval     │
+                    │ Code Generate│
+                    └──────┬───────┘
+                           │
+                     Typed Hooks
+                           │
+                           ▼
+                    ┌──────────────┐
+                    │ React Query  │
+                    └──────┬───────┘
+                           │
+                           ▼
+                    ┌──────────────┐
+                    │    React     │
+                    │  Components  │
+                    └──────────────┘
+```
+
+And Zod sits around the data boundaries where runtime validation is important.
+
+The biggest change isn't actually the technology.
+
+It is the **responsibility model**.
+
+---
+
+# The Frontend Doesn't Need to Know Everything
+
+This is the principle I wanted to achieve.
+
+A frontend developer working on the Leads page shouldn't have to understand how the Leads service works internally.
+
+They shouldn't need to know which database table is being queried.
+
+They shouldn't need to know how the backend joins related records.
+
+They shouldn't need to manually maintain a TypeScript interface copied from a Swagger response.
+
+They should be able to say:
+
+```ts
+const { data, isLoading } = useGetLead(id);
+```
+
+And TypeScript tells them what `data` contains.
+
+If they try:
+
+```ts
+lead.someFieldThatDoesNotExist
+```
+
+the compiler should complain.
+
+That's the contract doing its job.
+
+---
+
+# What Happens When the Backend Changes?
+
+This is where the setup becomes really useful.
+
+Suppose the backend changes:
+
+```ts
+name
+```
+
+to:
+
+```ts
+fullName
+```
+
+The API contract changes.
+
+Orval regenerates the client.
+
+And suddenly the frontend code that does:
+
+```ts
+lead.name
+```
+
+will fail TypeScript checks.
+
+That's exactly what I want.
+
+I don't want the application to discover the problem at runtime.
+
+I want the developer to discover it while writing code or running the build.
+
+**A broken contract should become a compile-time problem whenever possible.**
+
+---
+
+# It Also Helps With Team Communication
+
+This architecture solved another problem I didn't initially think about.
+
+Frontend and backend developers no longer have to constantly ask:
+
+> "What does this API return?"
+
+or:
+
+> "Is this field optional?"
+
+or:
+
+> "What is the request body?"
+
+The API contract answers those questions.
+
+It becomes a shared language between the two sides.
+
+Instead of communicating through assumptions, we communicate through a contract.
+
+---
+
+# One Important Lesson
+
+There is one thing I would not recommend:
+
+**Don't confuse generated types with complete runtime safety.**
+
+Generating TypeScript types from OpenAPI is extremely useful, but TypeScript disappears at runtime.
+
+If data crosses a boundary you don't fully control, runtime validation still matters.
+
+That's why I see these technologies as solving different problems:
+
+| Technology  | Responsibility             |
+| ----------- | -------------------------- |
+| TypeScript  | Compile-time type safety   |
+| Zod         | Runtime validation         |
+| Drizzle     | Type-safe database access  |
+| NestJS      | API/business logic         |
+| OpenAPI     | API contract               |
+| Orval       | Generated API client/hooks |
+| React Query | Server-state management    |
+| React       | UI                         |
+
+The value comes from putting them together rather than expecting one tool to solve everything.
+
+---
+
+# What I Like About This Approach
+
+The biggest benefit isn't that we wrote less code.
+
+It is that we reduced **uncertainty**.
+
+When I open a frontend component now, I can understand the data flow much faster.
+
+When an API changes, I get feedback earlier.
+
+When a new developer joins the project, they don't have to manually discover every API.
+
+When we add a new feature, the API contract becomes part of the implementation rather than an afterthought.
+
+And most importantly, the frontend becomes a consumer of a **known contract**, instead of a collection of manually maintained assumptions.
+
+---
+
+# Final Thought
+
+Working as a full-stack developer has made me realize that many bugs don't happen because someone wrote bad code.
+
+They happen because two parts of the system have **different assumptions**.
+
+The backend assumes one thing.
+
+The frontend assumes another.
+
+Both pieces of code can look perfectly reasonable in isolation.
+
+The problem exists in the gap between them.
+
+That's what I wanted to solve with this architecture.
+
+**Make the contract explicit. Make it typed. Generate what can be generated. Validate what needs runtime validation. And let the frontend consume simple, predictable hooks.**
+
+For me, that turned the API from something the frontend has to "figure out" into something the frontend can simply **trust and consume**.
