@@ -1,0 +1,451 @@
+---
+title: "How Drizzle Solved My Database Migration Conflicts"
+description: "How I solved database migration conflicts in a distributed team by leveraging Drizzle ORM schema snapshots and state-aware migrations."
+date: "2026-08-26"
+draft: false
+---
+
+> **Disclaimer:** This post is based on my own experience and thoughts while working on an agentic CRM. I used AI to help polish, structure, and improve the readability of my writing, but the ideas, problems, decisions, and experiences described here are my own.
+
+One of the less glamorous problems I faced while building an **agentic CRM** at my current company wasn't really about databases.
+
+It was about **database migrations**.
+
+When you have one developer working on a project, migrations are usually pretty straightforward.
+
+You make a schema change:
+
+```ts
+status: text("status")
+```
+
+Generate a migration, run it, and move on.
+
+But when several developers are working on different features at the same time, things get interesting.
+
+And by interesting, I mean:
+
+**migration conflicts.**
+
+---
+
+## The Problem We Kept Running Into
+
+Imagine two developers working on two different features.
+
+Developer A is working on Leads and adds:
+
+```text
+lead_source
+```
+
+Developer B is working on Companies and adds:
+
+```text
+industry
+```
+
+Both developers generate migrations around the same time.
+
+Now we have something like:
+
+```text
+migration_001
+migration_002
+```
+
+Both migrations were generated from roughly the same database state.
+
+Everything looks fine.
+
+Until someone merges their branch.
+
+Now the migration history and the actual database state can start getting out of sync.
+
+This became especially painful when multiple features were being developed in parallel.
+
+We would regularly have conversations like:
+
+> "Which migration should run first?"
+
+> "Did this migration already run?"
+
+> "Why is Drizzle asking me to generate another migration?"
+
+> "Can I delete this migration?"
+
+> "Is my local database in the same state as yours?"
+
+These aren't problems you want your development team spending time on.
+
+---
+
+# Why We Chose Drizzle in the First Place
+
+When we started building the CRM, we chose **Drizzle** for a few reasons.
+
+The first was that it felt close to SQL.
+
+Coming from a full-stack background, I didn't want an ORM that completely hid the database from me.
+
+With Drizzle, something like:
+
+```ts
+await db
+  .select()
+  .from(leads)
+  .where(eq(leads.id, leadId));
+```
+
+still feels like I'm working with the database.
+
+We also liked the TypeScript type safety.
+
+If our schema says:
+
+```ts
+export const leads = pgTable("leads", {
+  id: uuid("id").primaryKey(),
+  name: text("name").notNull(),
+});
+```
+
+our queries understand that schema.
+
+So initially, our thinking was simple:
+
+> **SQL-like + TypeScript type safety = good ORM choice.**
+
+And it was.
+
+But we later discovered that the part we cared about the most wasn't actually the query API.
+
+It was **migration management**.
+
+---
+
+# Our First Attempt: Timestamps
+
+One of the first approaches I considered was using timestamps for migration ordering.
+
+The idea was fairly simple:
+
+```text
+202608261001_add_lead_source
+202608261015_add_company_industry
+202608261030_add_contact_status
+```
+
+This gives us an obvious ordering.
+
+It seemed like it could solve the problem.
+
+But it doesn't completely solve the underlying issue.
+
+The timestamp tells us **when the migration was created**.
+
+It doesn't necessarily tell us **what database state that migration was created from**.
+
+That's an important difference.
+
+Two developers can create migrations at almost the same time from different branches and different schema states.
+
+So timestamps help with ordering, but they don't completely solve migration history.
+
+---
+
+# We Even Considered Leaving Drizzle
+
+At one point, I seriously considered whether we had chosen the wrong ORM.
+
+Maybe another ORM handled migrations better.
+
+So I started looking at other options.
+
+But eventually I realized something important.
+
+This wasn't really a **Drizzle problem**.
+
+It was a **distributed team + schema migration problem**.
+
+Almost every ORM has to deal with some version of the same problem.
+
+Different tools just choose different strategies.
+
+Some use migration history tables.
+
+Some use checksums.
+
+Some track schema state.
+
+Some use snapshots.
+
+Some provide different migration generation workflows.
+
+But the fundamental problem remains:
+
+> **Multiple developers are changing the same database schema concurrently.**
+
+So switching ORM wasn't necessarily going to make the problem disappear.
+
+---
+
+# Then We Started Looking Deeper Into Drizzle
+
+Instead of immediately abandoning Drizzle, I started digging deeper into how Drizzle was evolving.
+
+I spent quite a bit of time reading GitHub discussions, issues, and the migration work happening in the newer versions.
+
+That's when I came across the **Drizzle v1 beta**.
+
+And this was interesting because it was much closer to what I was actually looking for.
+
+The migration system wasn't just treating migrations as a sequence of SQL files.
+
+It also started keeping track of the **state of the schema**.
+
+That changed the way I thought about migrations.
+
+---
+
+# The Migration Contains More Than SQL
+
+With the newer approach, a migration folder contains things like:
+
+```text
+202608261001_add_lead_source/
+    migration.sql
+    snapshot.json
+```
+
+The important part here is the snapshot.
+
+The `migration.sql` describes:
+
+> **What should change?**
+
+The snapshot describes:
+
+> **What does the schema look like at this point?**
+
+That distinction is powerful.
+
+Instead of only having a history of SQL operations, we also have information about the schema state associated with that migration.
+
+Conceptually:
+
+```text
+                    Migration
+                        │
+             ┌──────────┴──────────┐
+             │                     │
+             ▼                     ▼
+       migration.sql           snapshot
+             │                     │
+        What changed?         Schema state
+```
+
+This gives the migration system much more context.
+
+---
+
+# Why the Snapshot Matters
+
+Let's go back to our example.
+
+Developer A creates:
+
+```text
+202608261001_add_lead_source
+```
+
+And Developer B creates:
+
+```text
+202608261015_add_company_industry
+```
+
+Both migrations can contain their own SQL changes.
+
+But now the migration system also has snapshots describing the schema state associated with those changes.
+
+That gives it something more meaningful to compare than simply:
+
+```text
+001
+002
+003
+```
+
+It can reason about schema state and how migrations relate to it.
+
+For me, this was the missing piece.
+
+---
+
+# It Changed How We Think About Migrations
+
+Before this, I was thinking about migrations as:
+
+```text
+Migration 1
+     ↓
+Migration 2
+     ↓
+Migration 3
+     ↓
+Migration 4
+```
+
+A simple chain.
+
+But in a team environment, development doesn't really work like that.
+
+It's more like:
+
+```text
+                    main
+                     │
+              ┌──────┴──────┐
+              │             │
+          Feature A      Feature B
+              │             │
+          Migration A    Migration B
+              │             │
+              └──────┬──────┘
+                     │
+                   Merge
+```
+
+Multiple developers are creating schema changes from different points in time.
+
+So migration management needs to understand **state**, not just sequence.
+
+That's what made the newer Drizzle approach much more interesting for us.
+
+---
+
+# What We Ended Up With
+
+Our migration structure now looks conceptually like:
+
+```text
+drizzle/
+├── 202608260901_initial/
+│   ├── migration.sql
+│   └── snapshot.json
+│
+├── 202608261015_add_lead_source/
+│   ├── migration.sql
+│   └── snapshot.json
+│
+├── 202608261130_add_company_industry/
+│   ├── migration.sql
+│   └── snapshot.json
+```
+
+Each migration has two important pieces:
+
+### `migration.sql`
+
+This is the actual database change.
+
+For example:
+
+```sql
+ALTER TABLE "leads"
+ADD COLUMN "lead_source" text;
+```
+
+### `snapshot`
+
+This represents the schema state at that point.
+
+Together they give the migration system both:
+
+```text
+Change
++
+State
+```
+
+And that's much more useful than having a folder containing only SQL.
+
+---
+
+# What I Learned From This
+
+The biggest lesson for me wasn't actually about Drizzle.
+
+It was about how I approach engineering problems.
+
+My first reaction was:
+
+> "I'm getting migration conflicts. Maybe I need another ORM."
+
+Then:
+
+> "Maybe timestamps will solve it."
+
+Then:
+
+> "Maybe I should move away from Drizzle."
+
+But after digging deeper, I realized I was trying to solve a general distributed-development problem by replacing a tool.
+
+The better approach was to understand **why the conflict existed in the first place**.
+
+Once I understood that, the newer migration model made much more sense.
+
+---
+
+# Why I Stayed With Drizzle
+
+We originally picked Drizzle because:
+
+* It is close to SQL.
+* It has strong TypeScript support.
+* Database queries are easy to reason about.
+* The schema lives naturally in TypeScript.
+
+But I stayed because its migration system was evolving toward something I actually needed for a team environment.
+
+The combination of:
+
+```text
+Type-safe schema
+        +
+SQL-like queries
+        +
+Migration SQL
+        +
+Schema snapshots
+```
+
+gave us a much better development workflow.
+
+---
+
+# Final Thought
+
+Database migrations are one of those things that work perfectly until your team gets big enough.
+
+Then suddenly, a tiny schema change can become a coordination problem.
+
+For us, the solution wasn't simply:
+
+> "Use timestamps."
+
+And it wasn't:
+
+> "Use another ORM."
+
+The real solution was to make migrations aware of **schema state**, not just migration order.
+
+That's what we found in the newer Drizzle migration approach with timestamped migration folders containing both the SQL migration and its snapshot.
+
+And honestly, this was a good reminder for me as an engineer:
+
+**When a tool seems to be causing a problem, don't immediately replace the tool. First understand the problem underneath it.**
+
+Sometimes the solution is already there—you just haven't looked deep enough yet.
